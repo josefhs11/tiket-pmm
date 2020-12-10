@@ -4,32 +4,26 @@
   gather_facts: yes
 
   tasks:
-    - name: Packages                   | Add Percona repository
-      when: ansible_os_family == 'RedHat'
-      yum:
-        name: https://www.percona.com/redir/downloads/percona-release/redhat/0.1-4/percona-release-0.1-4.noarch.rpm
-        state: installed
+    - name: Downloads Packages
+      apt:
+        deb: https://downloads.percona.com/downloads/percona-release/percona-release-1.0-9/ubuntu/percona-release_1.0-9.generic_all.deb
 
     - name: Packages                   | Update OS
-      when: ansible_os_family == 'RedHat'
-      yum:
-        name: '*'
-        state: latest
-        exclude: 'ansible'
-        disablerepo: percona-release-x86_64
+      apt:
+      update_cache: yes
+      cache_valid_time: 3600
 
-    - name: Packages                   | Install OS tools
-      when: ansible_os_family == 'RedHat'
-      yum: 
-        name: "{{ items }}"
-        state: installed
-      vars:
-        items:
-          - screen
-          - yum-utils
-          - yum-cron
-          - supervisor
-          - logrotate
+    - name: Install screen
+      apt: pkg=screen state=latest
+
+    - name: Install supervisor
+      apt: pkg=supervisor state=latest
+
+    - name: Install logrotate
+      apt: pkg=logrotate state=latest
+
+    - name: Install logrotate
+      apt: pkg=nginx state=latest
 
     - name: Adding pmm group
       group:
@@ -44,93 +38,67 @@
         groups: pmm
         append: yes
 
-    - name: cloud-init                 | Create dirs
-      file: path={{ item }} state=directory
-      with_items:
-        - /var/lib/cloud/scripts/per-once
-        - /var/lib/cloud/scripts/per-boot
+#    - name: Percona Server for MySQL   | Install Percona Client
+#      when: ansible_os_family == 'RedHat'
+#      yum: 
+#        name: "{{ items }}"
+#        state: installed
+#      vars:
+#        items:
+#          - Percona-Server-client-55
 
-    - name: cloud-init                 | Create dirs
-      file: path={{ item }} state=directory owner=pmm
-      with_items:
-        - /opt/prometheus/data
-        - /opt/consul-data
+#    - name: Percona Server for MySQL   | Remove MariaDB Client
+#      when: ansible_os_family == 'RedHat'
+#      yum: 
+#        name: "{{ items }}"
+#        state: absent
+#      vars:
+#        items:
+#          - mariadb-libs
 
-    - name: cloud-init                 | Configure yum-cron
-      replace:
-        dest: /etc/yum/yum-cron-hourly.conf
-        regexp: 'update_cmd = default'
-        replace: 'update_cmd = minimal-security'
+#    - name: Percona Server for MySQL   | Install Percona Server
+#      apt: 
+#        name: "{{ item }}" 
+#        state: present 
+#       with_items: 
+#         - Percona-Server-server-55
+#         - MySQL-python
+#
+#    - name: Percona Server for MySQL   | stat /root/.my.cnf
+#      stat: path=/root/.my.cnf
+#      register: root_mycnf_file
+#
+#    - name: Percona Server for MySQL   | Add password generator script
+#      when: not root_mycnf_file.stat.exists
+#      copy:
+#        content: |
+#          #!/bin/sh
+#
+#          TEMP_PASS=$(grep 'temporary password' /var/log/mysqld.log  | sed -e 's/.*localhost: //' | tail -1)
+#          NEW_PASS=$(dd if=/dev/urandom bs=1 count=256 2>/dev/null | tr -cd '[:alnum:],.!@#$%^&*' | head -c32)
+#          mysql "-p${TEMP_PASS}" --connect-expired-password -e "SET PASSWORD = PASSWORD('$NEW_PASS');"
+#          echo "[client]
+#          password = '$NEW_PASS'" > /root/.my.cnf
+#          echo "
+#          ++++++++++++++++++++++++++ Percona Server for MySQL ++++++++++++++++++++++++++
+#            Setting password for root@localhost user: $NEW_PASS
+#          ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#          " | tee -a /var/log/mysqld.log
+#        dest: /var/lib/cloud/scripts/per-once/init-mysql-password
+#        mode: 0755
 
-    - name: cloud-init                 | Configure yum-cron
-      replace:
-        dest: /etc/yum/yum-cron.conf
-        regexp: 'update_cmd = default'
-        replace: 'update_cmd = minimal-security'
-
-    - name: Percona Server for MySQL   | Install Percona Client
-      when: ansible_os_family == 'RedHat'
-      yum: 
-        name: "{{ items }}"
-        state: installed
-      vars:
-        items:
-          - Percona-Server-client-55
-
-    - name: Percona Server for MySQL   | Remove MariaDB Client
-      when: ansible_os_family == 'RedHat'
-      yum: 
-        name: "{{ items }}"
-        state: absent
-      vars:
-        items:
-          - mariadb-libs
-
-    - name: Percona Server for MySQL   | Install Percona Server
-      when: ansible_os_family == 'RedHat'
-      yum: 
-        name: "{{ items }}"
-        state: installed
-      vars:
-        items:
-         - Percona-Server-server-55
-         - MySQL-python
-
-    - name: Percona Server for MySQL   | stat /root/.my.cnf
-      stat: path=/root/.my.cnf
-      register: root_mycnf_file
-
-    - name: Percona Server for MySQL   | Add password generator script
-      when: not root_mycnf_file.stat.exists
-      copy:
-        content: |
-          #!/bin/sh
-
-          TEMP_PASS=$(grep 'temporary password' /var/log/mysqld.log  | sed -e 's/.*localhost: //' | tail -1)
-          NEW_PASS=$(dd if=/dev/urandom bs=1 count=256 2>/dev/null | tr -cd '[:alnum:],.!@#$%^&*' | head -c32)
-          mysql "-p${TEMP_PASS}" --connect-expired-password -e "SET PASSWORD = PASSWORD('$NEW_PASS');"
-          echo "[client]
-          password = '$NEW_PASS'" > /root/.my.cnf
-          echo "
-          ++++++++++++++++++++++++++ Percona Server for MySQL ++++++++++++++++++++++++++
-            Setting password for root@localhost user: $NEW_PASS
-          ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-          " | tee -a /var/log/mysqld.log
-        dest: /var/lib/cloud/scripts/per-once/init-mysql-password
-        mode: 0755
-
-    - name: PMM                        | Create grafana group
-      group:
-        gid: 996
-        name: grafana
-
-    - name: PMM                        | Create grafana user
-      user:
-        uid: 996
-        name: grafana
-        group: grafana
-        home: /etc/grafana
-        shell: /sbin/nologin
+#    - name: PMM                        | Create grafana group
+#      group:
+#        gid: 996
+#        name: grafana
+#
+#    - name: PMM                        | Create grafana user
+#      user:
+#        uid: 996
+#        name: grafana
+#        group: grafana
+#        home: /etc/grafana
+#        shell: /sbin/nologin
 
     - name: PMM                        | Add PMM Server YUM repository
       when: ansible_os_family == 'RedHat'
@@ -143,7 +111,6 @@
         gpgkey: file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Percona
 
     - name: PMM                        | Add local YUM repository
-      when: ansible_os_family == 'RedHat'
       yum_repository:
         name: local
         description: Local YUM repository - x86_64
@@ -152,19 +119,15 @@
         enabled: no
 
     - name: PMM                        | Install RPMs
-      when: ansible_os_family == 'RedHat'
-      yum: 
-        name: "{{ items }}"
-        state: installed
-        enablerepo: local
+      shell: rpm -U '{{ item }}'
       vars:
         items:
           - nginx
-          - percona-consul-0.8.5-1.el7.x86_64
-          - percona-grafana-5.1.3-5.el7.x86_64
-          - percona-prometheus-2.3.2-1.el7.x86_64
-          - percona-prometheus1-1.8.2-4.el7.x86_64
-          - percona-orchestrator-3.0.6-1.gita77ee00.el7.x86_64
+#          - percona-consul-0.8.5-1.el7.x86_64
+#          - percona-grafana-5.1.3-5.el7.x86_64
+#          - percona-prometheus-2.3.2-1.el7.x86_64
+#          - percona-prometheus1-1.8.2-4.el7.x86_64
+#          - percona-orchestrator-3.0.6-1.gita77ee00.el7.x86_64
           - percona-qan-api-1.16.0-3.1810230935.64366fb.el7.x86_64
           - percona-qan-app-1.16.0-3.1810310940.1914f99.el7.noarch
           - percona-toolkit-3.0.10
@@ -231,49 +194,49 @@
       when: not certificate_file.stat.exists
       command: /var/lib/cloud/scripts/per-boot/generate-ssl-certificate
 
-    - name: Grafana                    | Check data dir
-      stat: path=/srv/grafana/grafana.db
-      register: grafana_db
-
-    - name: Grafana                    | Enable Anonymous access
-      when: not grafana_db.stat.exists
-      ini_file:
-        dest: /etc/grafana/grafana.ini
-        section: auth.anonymous
-        option: enabled
-        value: true
-
-    - name: Grafana                    | Enable Anonymous access
-      when: not grafana_db.stat.exists
-      ini_file:
-        dest: /etc/grafana/grafana.ini
-        section: auth.anonymous
-        option: org_role
-        value: Editor
-
-    - name: Grafana                    | Set snapshot server
-      when: not grafana_db.stat.exists
-      ini_file:
-        dest: /etc/grafana/grafana.ini
-        section: snapshots
-        option: external_enabled
-        value: true
-
-    - name: Grafana                    | Set snapshot server
-      when: not grafana_db.stat.exists
-      ini_file:
-        dest: /etc/grafana/grafana.ini
-        section: snapshots
-        option: external_snapshot_url
-        value: https://snapshots-g504.percona.com
-
-    - name: Grafana                    | Set snapshot server
-      when: not grafana_db.stat.exists
-      ini_file:
-        dest: /etc/grafana/grafana.ini
-        section: snapshots
-        option: external_snapshot_name
-        value: Share with Percona
+#    - name: Grafana                    | Check data dir
+#      stat: path=/srv/grafana/grafana.db
+#      register: grafana_db
+#
+#    - name: Grafana                    | Enable Anonymous access
+#      when: not grafana_db.stat.exists
+#      ini_file:
+#        dest: /etc/grafana/grafana.ini
+#        section: auth.anonymous
+#        option: enabled
+#        value: true
+#
+#    - name: Grafana                    | Enable Anonymous access
+#      when: not grafana_db.stat.exists
+#      ini_file:
+#        dest: /etc/grafana/grafana.ini
+#        section: auth.anonymous
+#        option: org_role
+#        value: Editor
+#
+#    - name: Grafana                    | Set snapshot server
+#      when: not grafana_db.stat.exists
+#      ini_file:
+#        dest: /etc/grafana/grafana.ini
+#        section: snapshots
+#        option: external_enabled
+#        value: true
+#
+#    - name: Grafana                    | Set snapshot server
+#      when: not grafana_db.stat.exists
+#      ini_file:
+#        dest: /etc/grafana/grafana.ini
+#        section: snapshots
+#        option: external_snapshot_url
+#        value: https://snapshots-g504.percona.com
+#
+#    - name: Grafana                    | Set snapshot server
+#      when: not grafana_db.stat.exists
+#      ini_file:
+#        dest: /etc/grafana/grafana.ini
+#        section: snapshots
+#        option: external_snapshot_name
+#        value: Share with Percona
 
     - name: supervisor                 | Fix credentials
       ini_file:
@@ -289,7 +252,7 @@
         option: password
         value: dummy
 
-    - name: MySQL                      | Add includedir to MySQL config
-      lineinfile:
-        dest: /etc/my.cnf
-        line: '!includedir /etc/my.cnf.d/'
+#    - name: MySQL                      | Add includedir to MySQL config
+#      lineinfile:
+#        dest: /etc/my.cnf
+#        line: '!includedir /etc/my.cnf.d/'
