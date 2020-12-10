@@ -1,8 +1,7 @@
-FROM centos:7
+FROM ubuntu:18.04
 
-RUN yum -y install epel-release && \
-    yum -y install ansible glibc curl telnet net-tools && \
-    yum -y update
+RUN apt-get -y install ansible glibc curl telnet net-tools && \
+    apt-get -y update
 
 RUN mkdir /opt
 COPY * /opt/
