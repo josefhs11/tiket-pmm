@@ -1,3 +1,4 @@
+#supervisorctl
 [Unit]
 Description=Process Monitoring and Control Daemon
 After=rc-local.service nss-user-lookup.target
