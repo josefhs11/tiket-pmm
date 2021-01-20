@@ -5,7 +5,7 @@ More information https://www.percona.com/doc/percona-monitoring-and-management/d
 ## Instructions
 
 ### 1 - Get Repository
- git clone https://github.com/jmalmeid/pmserver-installation.git <br/>
+ git clone git@github.com:soedoeng/tiket-pmm.git <br/>
 
 ### 2 - Run Playbook install
  cd pmserver-installation <br/>
